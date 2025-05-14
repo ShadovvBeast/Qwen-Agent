@@ -17,6 +17,16 @@ def setup_logger(level=None):
     _logger = logging.getLogger('qwen_agent_logger')
     _logger.setLevel(level)
     _logger.addHandler(handler)
+
+    # Also attach the handler to the root logger so loggers created with
+    # `logging.getLogger(__name__)` get displayed if the application has not
+    # configured the root logger yet. This avoids missing log output from
+    # modules that call ``logging.getLogger(__name__)`` directly.
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        root_logger.setLevel(level)
+        root_logger.addHandler(handler)
+
     return _logger
 
 

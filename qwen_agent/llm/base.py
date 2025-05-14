@@ -227,7 +227,7 @@ class BaseChatModel(ABC):
 
         if isinstance(output, list):
             assert not stream
-            logger.debug(f'LLM Output:\n{pformat([_.model_dump() for _ in output], indent=2)}')
+            #logger.debug(f'LLM Output:\n{pformat([_.model_dump() for _ in output], indent=2)}')
             output = self._postprocess_messages(output, fncall_mode=fncall_mode, generate_cfg=generate_cfg)
             if not self.support_multimodal_output:
                 output = _format_as_text_messages(messages=output)
@@ -353,7 +353,7 @@ class BaseChatModel(ABC):
         pre_msg = []
         for pre_msg in messages:
             yield self._postprocess_messages(pre_msg, fncall_mode=fncall_mode, generate_cfg=generate_cfg)
-        logger.debug(f'LLM Output:\n{pformat([_.model_dump() for _ in pre_msg], indent=2)}')
+        #logger.debug(f'LLM Output:\n{pformat([_.model_dump() for _ in pre_msg], indent=2)}')
 
     def _convert_messages_to_target_type(self, messages: List[Message],
                                          target_type: str) -> Union[List[Message], List[Dict]]:

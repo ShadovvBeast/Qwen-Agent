@@ -48,21 +48,17 @@ def init_agent_service():
     #         # 'thought_in_content': True,
     #     },
     # }
-    tools = [
-        {
-            'mcpServers': {  # You can specify the MCP configuration file
-                'time': {
-                    'command': 'uvx',
-                    'args': ['mcp-server-time', '--local-timezone=Asia/Shanghai']
-                },
-                'fetch': {
-                    'command': 'uvx',
-                    'args': ['mcp-server-fetch']
+    tools = [{
+        "mcpServers": {
+            "firecrawl-mcp": {
+                "command": "npx",
+                "args": ["-y", "firecrawl-mcp"],
+                "env": {
+                    "FIRECRAWL_API_KEY": "fc-614d646f8a2f488d8a18a9aad7bd4bc2"
                 }
             }
-        },
-        'code_interpreter',  # Built-in tools
-    ]
+        }
+    }, 'code_interpreter']
     bot = Assistant(llm=llm_cfg,
                     function_list=tools,
                     name='Qwen3 Tool-calling Demo',

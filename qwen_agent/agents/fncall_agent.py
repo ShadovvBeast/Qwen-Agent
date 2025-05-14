@@ -57,29 +57,48 @@ class FnCallAgent(Agent):
             self.mem = Memory(llm=mem_llm, files=files, **kwargs)
 
     def _run(self, messages: List[Message], lang: Literal['en', 'zh'] = 'en', **kwargs) -> Iterator[List[Message]]:
+        import logging
+        logger = logging.getLogger(__name__)
         messages = copy.deepcopy(messages)
         num_llm_calls_available = MAX_LLM_CALL_PER_RUN
         response = []
+        logger.info(f"Starting _run with {len(messages)} messages. lang={lang}")
         while True and num_llm_calls_available > 0:
             num_llm_calls_available -= 1
 
             extra_generate_cfg = {'lang': lang}
             if kwargs.get('seed') is not None:
                 extra_generate_cfg['seed'] = kwargs['seed']
-            output_stream = self._call_llm(messages=messages,
-                                           functions=[func.function for func in self.function_map.values()],
-                                           extra_generate_cfg=extra_generate_cfg)
+            logger.debug(f"Calling LLM with messages: {messages} and extra_generate_cfg: {extra_generate_cfg}")
+            output_stream = self._call_llm(
+                messages=messages,
+                functions=[func.function for func in self.function_map.values()],
+                stream=False,  # non-stream to capture usage stats
+                extra_generate_cfg=extra_generate_cfg
+            )
+            # Wrap list response to unify interface
+            if isinstance(output_stream, list):
+                output_stream = [output_stream]
             output: List[Message] = []
             for output in output_stream:
+                logger.debug(f"Received output from output_stream: {output} (type: {type(output)})")
                 if output:
-                    yield response + output
+                    if isinstance(output, tuple):
+                        logger.error(f"Output is a tuple! Value: {output}")
+                    else:
+                        logger.debug(f"Yielding output: {output}")
+                    yield (response + (list(output) if isinstance(output, (list, tuple)) else [output]))
             if output:
+                logger.info(f"Extending response and messages with output: {output}")
                 response.extend(output)
                 messages.extend(output)
                 used_any_tool = False
                 for out in output:
+                    logger.debug(f"Checking for tool in output: {out} (type: {type(out)})")
                     use_tool, tool_name, tool_args, _ = self._detect_tool(out)
+                    logger.info(f"Tool detection result: use_tool={use_tool}, tool_name={tool_name}, tool_args={tool_args}")
                     if use_tool:
+                        logger.info(f"Calling tool: {tool_name} with args: {tool_args}")
                         tool_result = self._call_tool(tool_name, tool_args, messages=messages, **kwargs)
                         fn_msg = Message(
                             role=FUNCTION,
@@ -88,9 +107,11 @@ class FnCallAgent(Agent):
                         )
                         messages.append(fn_msg)
                         response.append(fn_msg)
+                        logger.info(f"Yielding response after tool: {response}")
                         yield response
                         used_any_tool = True
                 if not used_any_tool:
+                    logger.info("No tool used, breaking loop.")
                     break
         yield response
 

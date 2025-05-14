@@ -99,7 +99,7 @@ class TextChatAtOAI(BaseFnCallModel):
                                         reasoning_content=chunk.choices[0].delta.reasoning_content)
                             ]
                         if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
-                            yield [Message(role=ASSISTANT, content=chunk.choices[0].delta.content)]
+                            yield [Message(role=ASSISTANT, content=chunk.choices[0].delta.content, extra={'usage': getattr(chunk, 'usage', None) if hasattr(chunk, 'usage') else chunk.get('usage', None) if isinstance(chunk, dict) else None})]
             else:
                 full_response = ''
                 full_reasoning_content = ''
@@ -110,7 +110,7 @@ class TextChatAtOAI(BaseFnCallModel):
                             full_reasoning_content += chunk.choices[0].delta.reasoning_content
                         if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
                             full_response += chunk.choices[0].delta.content
-                        yield [Message(role=ASSISTANT, content=full_response, reasoning_content=full_reasoning_content)]
+                        yield [Message(role=ASSISTANT, content=full_response, reasoning_content=full_reasoning_content, extra={'usage': getattr(chunk, 'usage', None) if hasattr(chunk, 'usage') else chunk.get('usage', None) if isinstance(chunk, dict) else None})]
         except OpenAIError as ex:
             raise ModelServiceError(exception=ex)
 
@@ -122,14 +122,24 @@ class TextChatAtOAI(BaseFnCallModel):
         messages = self.convert_messages_to_dicts(messages)
         try:
             response = self._chat_complete_create(model=self.model, messages=messages, stream=False, **generate_cfg)
+            usage = getattr(response, 'usage', None) if hasattr(response, 'usage') else response.get('usage', None) if isinstance(response, dict) else None
+            if usage is not None and not isinstance(usage, (str, int, float, dict, list, bool, type(None))):
+                if hasattr(usage, 'dict') and callable(getattr(usage, 'dict')):
+                    usage = usage.dict()
+                elif hasattr(usage, '__dict__'):
+                    usage = dict(usage.__dict__)
+                else:
+                    usage = str(usage)
+            extra = {'usage': usage}
             if hasattr(response.choices[0].message, 'reasoning_content'):
                 return [
                     Message(role=ASSISTANT,
                             content=response.choices[0].message.content,
-                            reasoning_content=response.choices[0].message.reasoning_content)
+                            reasoning_content=response.choices[0].message.reasoning_content,
+                            extra=extra)
                 ]
             else:
-                return [Message(role=ASSISTANT, content=response.choices[0].message.content)]
+                return [Message(role=ASSISTANT, content=response.choices[0].message.content, extra=extra)]
         except OpenAIError as ex:
             raise ModelServiceError(exception=ex)
 
